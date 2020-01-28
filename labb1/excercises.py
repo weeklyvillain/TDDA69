@@ -202,3 +202,54 @@ def n_fold_smooth(f, n):
 
 five_smoothed_square = n_fold_smooth(sq, 5)
 print(five_smoothed_square(4))
+
+
+# 2.1
+# If we execute it with normal order evaluation it would
+# crash with a maximum recursion depth error.
+# This is because we send in f() instead of just the funciton f.
+# If we do the same in a lazy langauge it would not crash since
+# the funciton f is pure it wont be executed until it is needed (in the else statement)
+#
+# It would also crash in a applicative-order evaluation
+# since it would evaluate the parameters before the function
+# is called.
+
+# 2.2 a)
+# --- x=10, value=Stored  // This is printed because value is a local variable so changing the global variable "value" wont change the output
+# In g: 5000 // We call the function and it will use the local variable "x", not the global.
+# In f: 10 // g() calls f() and it will use the global variable x.
+# In g: 5000 // We call the function g() and it will print 5000 (the local x value)
+# In f: 0 // The global x value has now been changed to 0 so the f() function will output 0.
+
+# 2.2 b)
+# Global state before the value of x is changed to 0
+# -- Global State --
+#   x: 10
+#   f: function...
+#   g: function...
+#   keep_val: function...
+#   print_mess: function...
+#   value: "New and updated."
+
+# -- keep_val State --
+#   value: "Stored"
+#   f: function...
+
+# Global state after everything has executed
+# -- Global State --
+#   x: 0
+#   f: function...
+#   g: function...
+#   keep_val: function...
+#   print_mess: function...
+#   value: "New and updated."
+
+
+
+# 2.2 c)
+# --- x=10, value=New and Updated.
+# In g: 5000
+# In f: 5000
+# In g: 5000
+# In f: 5000
