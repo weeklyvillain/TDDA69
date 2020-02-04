@@ -108,6 +108,8 @@ print(sum(lambda n: n, 1, lambda n: n+1, 10))
 # lower value. For example 5-6-7 with a null value of 10 would be like this: 10-5-6-7 wich is equal to
 # 5-6-7.
 
+# Komplettering: We want accumulate and accumulate_iter to have associative property and Commutative property.
+
 
 # 1.4 a)
 def foldl(f, null, array, counter=-1):
@@ -214,8 +216,8 @@ print(five_smoothed_square(4))
 # This is because we send in f() instead of just the funciton f.
 
 # Komplettering:
-# The normal evaluation order will start from the left and evaluate the code. 
-# 
+# The normal evaluation order will start from the left and evaluate the code.
+#
 # If we do the same in a lazy langauge it would not crash since
 # the funciton f is pure it wont be executed until it is needed (in the else statement)
 #
