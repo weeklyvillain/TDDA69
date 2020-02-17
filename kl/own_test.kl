@@ -1,0 +1,10 @@
+#!kl --test run_success
+
+cell sub = {
+};
+
+cell sub.innera.c = 2;
+define sub.innerb = 0;
+
+___native_call___("py", "assert_", sub.a == 2, ___calltrace___);
+___native_call___("py", "assert_", sub.b == 0, ___calltrace___);
