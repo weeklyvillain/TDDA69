@@ -108,23 +108,26 @@ print(sum(lambda n: n, 1, lambda n: n+1, 10))
 # lower value. For example 5-6-7 with a null value of 10 would be like this: 10-5-6-7 wich is equal to
 # 5-6-7.
 
+# Komplettering: We want accumulate and accumulate_iter to have associative property and Commutative property.
+
 
 # 1.4 a)
-def foldl(f, null, array):
-    if len(array) is 0:
+def foldl(f, null, array, counter=-1):
+    if len(array) is counter*-1:
         return null
     else:
-        value = array.pop()
-        return f(foldl(f, null, array), value)
+        value = array[counter]
+        return f(foldl(f, null, array, counter - 1), value)
 
-# 1.4 b)
-def foldr(f, null, array):
-    if len(array) is 0:
+
+
+
+def foldr(f, null, array, counter=0):
+    if len(array) is counter:
         return null
     else:
-        value = array.pop(0)
-        return f(value, foldr(f, null, array))
-
+        value = array[counter]
+        return f(value, foldr(f, null, array, counter + 1))
 
 print(foldl(lambda x,y: x*y, 1, [1,2,3,4,5]))
 print(foldr(lambda x,y: x*y, 1, [1,2,3,4,5]))
@@ -153,17 +156,20 @@ print(reverse_l([1,2,3]))
 
 
 # 1.5 a)
-def repeat(f, n):
-    #return lambda x: f(x)**n
 
-    def inner(x):
-        for i in range(n):
-            x = f(x)
-        return x
-    return inner
+
+# repeat(f, 3)(20)
+# f(f(f(20)))
+def repeat(f, n):
+    if n == 0:
+        return lambda x: x
+    else:
+        return lambda x: f(repeat(f, n-1)(x))
+
 
 sq = lambda x: x*x
 sq_twice = repeat(sq, 2)
+
 print(sq_twice(5))
 
 # 1.5 b)
@@ -208,6 +214,10 @@ print(five_smoothed_square(4))
 # If we execute it with normal order evaluation it would
 # crash with a maximum recursion depth error.
 # This is because we send in f() instead of just the funciton f.
+
+# Komplettering:
+# The normal evaluation order will start from the left and evaluate the code.
+#
 # If we do the same in a lazy langauge it would not crash since
 # the funciton f is pure it wont be executed until it is needed (in the else statement)
 #
