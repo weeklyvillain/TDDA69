@@ -10,7 +10,7 @@ import klib.ast
 import klib.environment
 import klib.environment.utils as ke_utils
 
-from .kl_exception import kl_exception
+from .kl_exception import kl_exception, kl_return
 
 class substitution_exception(klib.exception):
   def __init__(self, message, metadata):
@@ -50,9 +50,8 @@ class substitution_evaluator(ast_visitor):
     self.developer_verbose = developer_verbose
 
   def __get_value(self, value):
-    #print(type(value))
-    if isinstance(value, klib.environment.reference):
-        return value.environment.get(value.name).get_value()
+    while isinstance(value, klib.environment.reference):
+        value = value.environment.get(value.name).get_value()
     return value
 
   def visit_ast(self, node):
@@ -92,20 +91,29 @@ class substitution_evaluator(ast_visitor):
     raise Exception("substitution_evaluator: unimplemented")
 
   def visit_return_expression(self, node):
-    raise Exception("substitution_evaluator: unimplemented")
+    raise kl_return(node.return_value.accept(self))
+    #raise Exception("substitution_evaluator: unimplemented")
 
   def visit_named_block(self, node):
+    env = self.environment
     if node.type is '___define___':
-      for name in node.names:
-        self.environment.define_value(name, init_value=node.body.accept(self))
+      for i in range(0, len(node.names)-1):
+        env = env.get(node.names[i]).get_value()
+
+      initial = None
+      if node.body is not None:
+        initial = self.__get_value(node.body.accept(self))
+      env.define_value(node.names[-1], init_value=node.body.accept(self))
+
     elif node.type is '___cell___':
-      print(node.names)
-      for name in node.names:
-        initial = None
-        if node.body is not None:
-          print(self.__get_value(node.body.accept(self)))
-          initial = self.__get_value(node.body.accept(self))
-        self.environment.define_cell(name, init_value=initial)
+      for i in range(0, len(node.names)-1):
+        env = env.get(node.names[i]).get_value()
+
+      initial = None
+      if node.body is not None:
+        initial = self.__get_value(node.body.accept(self))
+
+      env.define_cell(node.names[-1], init_value=initial)
     #print(node.names)
     #print(node.type)
     #print(node.arguments)
@@ -116,7 +124,6 @@ class substitution_evaluator(ast_visitor):
     #raise Exception("substitution_evaluator: unimplemented")
 
   def __set_value(self, node):
-    print(node.left.identifier)
     if not self.environment.get(node.left.identifier).is_writable():
         raise substitution_exception("Cant set value", node.metadata)
     return self.environment.get(node.left.identifier).set_value(self.__get_value(node.right.accept(self)))
@@ -157,13 +164,41 @@ class substitution_evaluator(ast_visitor):
     #raise Exception("substitution_evaluator: unimplemented")
 
   def visit_cond_expression(self, node):
-    raise Exception("substitution_evaluator: unimplemented")
+    for i in range(0, len(node.arguments), 2):
+        if node.arguments[i].accept(self):
+          return node.arguments[i+1].accept(self)
+    return node.arguments[-1].accept(self)
+    #raise Exception("substitution_evaluator: unimplemented")
 
   def visit_catch_expression(self, node):
-    raise Exception("substitution_evaluator: unimplemented")
+    old_env = self.environment
+    # Get the exception value if it raises one.
+    try:
+      return node.block.accept(self)
+    except kl_exception as e:
+      # If we have a catch condition
+      if node.catch_cond is not None:
+        # Get the enviroment and bytecode for the function 'catch_cond'
+        env, bytecode = node.catch_cond.accept(self).prepare_call(e.value)
+        # Set our enviroment to the functions enviroment
+        self.environment = env
+        # Get the return value of the function, it throws an exception 'kl_return'
+        # to send back the value
+        try:
+          node.catch_cond.accept(self).body.accept(self)
+        except kl_return as r:
+          # If the return value was false, we shouldn't rune the catch_block
+          if not r.value:
+            return
+        finally:
+          # Change back our enviroment to the old one
+          self.environment = old_env
+      # Run the catch_block if we got this far.
+      node.catch_block.accept(self)
 
   def visit_raise_expression(self, node):
-    raise Exception("substitution_evaluator: unimplemented")
+    # Raise an exception to get the value back to 'visit_catch_expression'
+    raise kl_exception(node.expression.accept(self))
 
   def visit_expression_statement(self, node):
     return node.expression.accept(self)
@@ -179,7 +214,6 @@ class substitution_evaluator(ast_visitor):
     #raise Exception("substitution_evaluator: unimplemented")
 
   def visit_group_expression(self, node):
-    print(node)
     for statement in node.statements:
       statement.accept(self)
     #raise Exception("substitution_evaluator: unimplemented")
