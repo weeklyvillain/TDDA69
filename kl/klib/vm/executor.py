@@ -146,4 +146,5 @@ class executor:
 
 
   def execute_dcl_cell(self, name):
-    self.current_context.stack.pop().define_cell(name)
+    self.current_context.environment.define_cell(name, self.current_context.stack.pop())
+    #self.current_context.stack.pop().define_cell(name)
