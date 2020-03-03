@@ -27,7 +27,7 @@ class opcodes:
   POP             = opcode(2, "POP", ["count"], [], "Remove [cound] elements from the stack")
   DUP             = opcode(3, "DUP", [], [], "Duplicate the top value on the stack")
   SWAP            = opcode(4, "SWAP", [], [], "Swap the top two members of the stack")
-  
+
   # Environment and objects manipulation
   PUSH_ENV        = opcode(10, "PUSH_ENV", [], [], "Push the environment on the stack")
   NEW_ENV         = opcode(11, "NEW_ENV", [], [], "Create a new environment and set it as the current environment")
@@ -38,7 +38,7 @@ class opcodes:
   DEF_VALUE       = opcode(16, "DEF_VALUE", ["name"], [], "Define a new value [varname] take the value from the stack")
   CLEAR           = opcode(17, "CLEAR", [], ["name"], "Clear the value [name] from the top environment from the stack")
   PUSH_CALL_TRACE = opcode(18, "PUSH_CALL_TRACE", [], [], "Push call trace on the stack")
-  
+
   # Control
   JMP             = opcode(20, "JMP", ["index"], [], "Jump to a specific [index]")
   IFJMP           = opcode(21, "IFJMP", ["index"], [], "Jump to a specific [index] if top value on the stack is true")
@@ -51,10 +51,10 @@ class opcodes:
   TRY_PUSH        = opcode(30, "TRY_PUSH", ["index"], [], "Push [index] to jump to if an exception is thrown.")
   TRY_POP         = opcode(31, "TRY_POP", [], [], "Pop exception index.")
   THROW           = opcode(32, "THROW", [], [], "Throw an exception, with the first object of the stack.")
-  
+
   # Array and Objects creation
   MAKE_FUNC       = opcode(40, "MAKE_FUNC", ["body", "argument_names", "modifiers"], [], "Make a function with [body], [argument_names] and [modifiers]")
-  
+
   # Binary arithmetic operation
   ADD             = binary_opcode(50, "ADD", "addition")
   MUL             = binary_opcode(51, "MUL", "multiplication")
@@ -64,7 +64,7 @@ class opcodes:
   LEFT_SHIFT      = binary_opcode(55, "LEFT_SHIFT", "left shift")
   RIGHT_SHIFT     = binary_opcode(56, "RIGHT_SHIFT", "right shift")
   UNSIGNED_RIGHT_SHIFT  = binary_opcode(57, "UNSIGNED_RIGHT_SHIFT", "unsigned right shift")
-  
+
   # Binary bolean operation
   GREATER         = binary_opcode(60, "GREATER", "superior")
   GREATER_EQUAL   = binary_opcode(61, "GREATER_EQUAL", "superior or equal")

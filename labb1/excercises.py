@@ -113,7 +113,7 @@ print(sum(lambda n: n, 1, lambda n: n+1, 10))
 
 # 1.4 a)
 def foldl(f, null, array, counter=-1):
-    if len(array) is counter*-1:
+    if len(array) == counter*-1 - 1:
         return null
     else:
         value = array[counter]
@@ -135,19 +135,13 @@ print(foldr(lambda x,y: x*y, 1, [1,2,3,4,5]))
 
 # 1.4 c)  Define the following functions as calls to foldr and foldl.
 def my_map(f, seq):
-    new_list = []
-    foldl(lambda x, y: new_list.append(f(y)), [], seq)
-    return new_list
+    return foldl(lambda x, y: x + [f(y)], [], seq)
 
 def reverse_r(seq):
-    new_list = []
-    foldr(lambda x,y: new_list.append(x), 0, seq)
-    return new_list
+    return foldr(lambda x,y: y + [x], [], seq)
 
 def reverse_l(seq):
-    new_list = []
-    foldl(lambda x,y: new_list.insert(0,y), 0, seq)
-    return new_list
+    return foldl(lambda x,y: [y] + x, [], seq)
 
 
 print(my_map(lambda n: n*2, [1,2,3]))
@@ -173,8 +167,25 @@ sq_twice = repeat(sq, 2)
 print(sq_twice(5))
 
 # 1.5 b)
-# Repeat needs to take in a function as first argument and an integer as second argument and it will always return an integer as answer.
-# The function (f) needs to take in one parameter and needs to return an integer.
+# Repeat needs to take in a function as first argument and an integer as second argument.
+# The function (f) needs to take in one parameter.
+# utdata måste vara en delmängd av indata
+#
+
+""""
+    f1(x) = 1 om x udda, -1 om x jämnt.
+    f1 : Z -> R  [heltal in, reella ut]
+    f1(5), f1(f1(5))
+
+    f2(x) = 1 om x udda, -1 om x jämnt.
+    f2 : Z+ -> R  [positiva heltal in, reella ut]
+    f2(5), f2(f2(5)), f2(4), inte f2(f2(4))=f2(-1)
+
+    f3(x) = 1 om x udda, 2 om x jämnt.
+    f3 : Z+ -> R  [positiva heltal in, reella ut]
+    f3... ok!
+
+""""
 
 # 1.5 c)
 def compose(f, g):

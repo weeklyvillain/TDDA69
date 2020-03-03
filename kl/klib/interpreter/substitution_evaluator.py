@@ -52,6 +52,7 @@ class substitution_evaluator(ast_visitor):
   def __get_value(self, value):
     while isinstance(value, klib.environment.reference):
         value = value.environment.get(value.name).get_value()
+    print(value)
     return value
 
   def visit_ast(self, node):
@@ -88,6 +89,9 @@ class substitution_evaluator(ast_visitor):
     return klib.environment.function(node.arguments, node.body, self.environment, **ke_utils.function_modifiers(node))
 
   def visit_import_statement(self, node):
+    print(node.path)
+    print(node.major_version)
+    print(node.minor_version)
     raise Exception("substitution_evaluator: unimplemented")
 
   def visit_return_expression(self, node):
@@ -202,7 +206,7 @@ class substitution_evaluator(ast_visitor):
 
   def visit_expression_statement(self, node):
     return node.expression.accept(self)
-    raise Exception("substitution_evaluator: unimplemented")
+    #raise Exception("substitution_evaluator: unimplemented")
 
   def visit_block_expression(self, node):
     new_env = klib.environment.environment(parent=self.environment)

@@ -150,3 +150,4 @@ a.set_value(2, "user")
 # 3.0.1 b)
 # All negative values for the v2 will not work. We need
 # f(x) = x**2, x**2 >= 0
+# v1 however can be all real numbers.
