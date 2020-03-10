@@ -6,7 +6,9 @@ from klib.bytecode import opcodes
 from .stack   import stack
 from klib.io import stdout
 import klib.interpreter.kl_exception
+import klib.exception
 
+from klib.interpreter.kl_exception import kl_exception, kl_return
 from klib.environment.environment import unknown_cell
 
 
@@ -42,9 +44,49 @@ class executor:
       executor.opmaps[opcodes.MAKE_REF] = executor.execute_make_ref
       executor.opmaps[opcodes.STORE] = executor.execute_store
       executor.opmaps[opcodes.DCL_CELL] = executor.execute_dcl_cell
+      executor.opmaps[opcodes.DEF_VALUE] = executor.execute_def_value
+      executor.opmaps[opcodes.CLEAR] = executor.execute_clear
+      executor.opmaps[opcodes.PUSH_CALL_TRACE] = executor.execute_push_call_trace
+      executor.opmaps[opcodes.JMP] = executor.execute_jmp
+      executor.opmaps[opcodes.IFJMP] = executor.execute_ifjmp
+      executor.opmaps[opcodes.UNLESSJMP] = executor.execute_unlessjmp
+      executor.opmaps[opcodes.RET] = executor.execute_ret
+      executor.opmaps[opcodes.NATIVE_CALL] = executor.execute_native_call
+      executor.opmaps[opcodes.CALL] = executor.execute_call
+      executor.opmaps[opcodes.TRY_PUSH] = executor.execute_try_push
+      executor.opmaps[opcodes.TRY_POP] = executor.execute_try_pop
+      executor.opmaps[opcodes.THROW] = executor.execute_throw
+      executor.opmaps[opcodes.MAKE_FUNC] = executor.execute_make_func
+      executor.opmaps[opcodes.ADD] = executor.execute_add
+      executor.opmaps[opcodes.SUB] = executor.execute_sub
+      executor.opmaps[opcodes.DIV] = executor.execute_div
+      executor.opmaps[opcodes.MUL] = executor.execute_mul
+      executor.opmaps[opcodes.MOD] = executor.execute_mod
+      executor.opmaps[opcodes.LEFT_SHIFT] = executor.execute_left_shift
+      executor.opmaps[opcodes.RIGHT_SHIFT] = executor.execute_right_shift
+      executor.opmaps[opcodes.UNSIGNED_RIGHT_SHIFT] = executor.execute_unsigned_right_shift
+      executor.opmaps[opcodes.GREATER] = executor.execute_greater
+      executor.opmaps[opcodes.GREATER_EQUAL] = executor.execute_greater_equal
+      executor.opmaps[opcodes.LESS] = executor.execute_less
+      executor.opmaps[opcodes.LESS_EQUAL] = executor.execute_less_equal
+      executor.opmaps[opcodes.EQUAL] = executor.execute_equal
+      executor.opmaps[opcodes.DIFFERENT] = executor.execute_different
+      executor.opmaps[opcodes.AND] = executor.execute_and
+      executor.opmaps[opcodes.OR] = executor.execute_or
+      executor.opmaps[opcodes.NEG] = executor.execute_neg
+      executor.opmaps[opcodes.TILDE] = executor.execute_tilde
+      executor.opmaps[opcodes.NOT] = executor.execute_not
 
 
 
+  def __pop_value(self):
+    value = self.current_context.stack.pop()
+    while isinstance(value, klib.environment.reference):
+      value = value.environment.get(value.name)
+
+    while isinstance(value, klib.environment.cell.cell) or isinstance(value, klib.environment.value.value):
+      value = value.get_value()
+    return value
 
   def execute(self, program, environment = klib.environment.environment(), caller_metadata = None, verbose = False, return_stack = False):
     self.current_context = executor_context(program, environment)
@@ -146,5 +188,157 @@ class executor:
 
 
   def execute_dcl_cell(self, name):
-    self.current_context.environment.define_cell(name, self.current_context.stack.pop())
-    #self.current_context.stack.pop().define_cell(name)
+    #self.current_context.environment.define_cell(name, self.current_context.stack.pop())
+    self.current_context.stack.pop().define_cell(name)
+
+  def execute_def_value(self, name):
+    value = self.current_context.stack.pop()
+    env = self.current_context.stack.pop()
+    env.define_value(name, value)
+
+  def execute_clear(self, name=None):
+    # Ifall vi inte gett ett namn cleara referencens namn i referencens environment.
+    if name == None:
+      ref = self.current_context.stack.pop()
+      name = ref.name
+      env = ref.environment
+    else:
+      env = self.current_context.stack.pop()
+    env.clear(name)
+    self.execute_push(None)
+
+  def execute_push_call_trace(self):
+    metadata = klib.parser.metadata(self.current_context.current_index, 0, None, None, self.current_context.environment.parent)
+    self.execute_push([metadata])
+
+  def execute_jmp(self, index):
+    self.current_context.current_index = index-1
+
+  def execute_ifjmp(self, index):
+    if self.current_context.stack.pop():
+      self.execute_jmp(index)
+
+  def execute_unlessjmp(self, index):
+    if not self.current_context.stack.pop():
+      self.execute_jmp(index)
+
+  def execute_ret(self):
+    # Sätt current_index till slutet av programmet så inget mer exekveras.
+    self.current_context.current_index = len(self.current_context.program.instructions)
+
+  def execute_native_call(self, native_function, count):
+    args = []
+    for i in range(count):
+      args.append(self.current_context.stack.pop())
+    self.execute_push(native_function(*args))
+
+  def execute_call(self, count):
+    func = self.current_context.stack.pop()
+    args = []
+    for i in range(count):
+      args.append(self.current_context.stack.pop())
+
+    env, program = func.prepare_call(args)
+    self.execute_push(*self.execute(program, env))
+
+  def execute_try_push(self, index):
+    self.current_context.exceptions_stack.push(index)
+
+  def execute_try_pop(self):
+    self.current_context.exceptions_stack.pop()
+
+  def execute_throw(self):
+    # Hoppa till första indexet i exceoptions_stack ifall det finns, annars throw kl_exception
+    index = None
+    try:
+      index = self.current_context.exceptions_stack.stack[0]
+      self.execute_jmp(index)
+    except IndexError as e:
+      raise kl_exception("No jmp index on the exception stack")
+
+  def execute_make_func(self, body, argument_names, modifiers):
+    self.execute_push(klib.environment.function(argument_names, body, self.current_context.environment))
+
+  def execute_add(self):
+    self.execute_push(self.current_context.stack.pop() + self.current_context.stack.pop())
+
+  def execute_sub(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    self.execute_push(v1 - v2)
+
+  def execute_div(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    self.execute_push(v1 / v2)
+
+  def execute_mul(self):
+    self.execute_push(self.current_context.stack.pop() * self.current_context.stack.pop())
+
+  def execute_mod(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    self.execute_push(v1 % v2)
+
+  def execute_left_shift(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    # v1 << v2 = v1 * pow(2,v2)
+    self.execute_push(int(v1 * (2 ** v2)))
+
+  def execute_right_shift(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    # v1 >> v2 = v1 / pow(2,v2)
+    self.execute_push(int(v1 / (2 ** v2)))
+
+  def execute_unsigned_right_shift(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    # Unsigned right shift = push 0 to the left of the binary representation of the number.
+    self.execute_push(int(v1 % 0x100000000) >> int(v2))
+
+  def execute_greater(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    self.execute_push(v1 > v2)
+
+  def execute_greater_equal(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    self.execute_push(v1 >= v2)
+
+  def execute_less(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    self.execute_push(v1 < v2)
+
+  def execute_less_equal(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    self.execute_push(v1 <= v2)
+
+  def execute_equal(self):
+    self.execute_push(self.current_context.stack.pop() == self.current_context.stack.pop())
+
+  def execute_different(self):
+    self.execute_push(self.current_context.stack.pop() != self.current_context.stack.pop())
+
+  def execute_and(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    self.execute_push(v2 and v1)
+
+  def execute_or(self):
+    v2 = self.current_context.stack.pop()
+    v1 = self.current_context.stack.pop()
+    self.execute_push(v2 or v1)
+
+  def execute_neg(self):
+    self.execute_push(self.current_context.stack.pop() * -1)
+
+  def execute_tilde(self):
+    self.execute_push(~int(self.current_context.stack.pop()))
+
+  def execute_not(self):
+    self.execute_push(not self.current_context.stack.pop())
