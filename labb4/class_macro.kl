@@ -1,0 +1,124 @@
+rule
+    class $name
+    {
+        public;
+            $pubvariables;
+            $name $cargs $cbody;
+            $functions($fname $fargs $fbody;)
+        private;
+            $privvariables;
+            $privfunctions($privfname $privfargs $privfbody;)
+    }
+    => {
+        // funktionen för o skapa klassen, $cargs = constructor arguments
+        define $name = function $cargs {
+            /*
+            define self = {
+                // publika variabler
+                $pubvariables
+
+                // publika funktioner
+                $functions(define $fname = function $fargs {
+                    $fbody
+                };)
+                // private (funkar inte då man inte kan komma åt de privat sakerna via self.<var> / self.<func> inne i klassen)
+                // Tar man bort måsvingarna så kan man göra det, men då kan man göra det utanför klassen också, vilket gör att det inte ens är
+                // privat.
+                {
+                    $privvariables
+
+                    $privfunctions(define $privfname = function $privfargs {
+                        $privfbody
+                    };)
+                }
+            }
+            */
+            define public = {
+                $pubvariables
+
+                $functions(define $fname = function $fargs {
+                    $fbody
+                };)
+
+                define private = {
+                    $privvariables
+
+                    $privfunctions(define $privfname = function $privfargs {
+                        $privfbody
+                    };)
+
+                }
+            }
+
+            // Sätt self till public.private så man kan nå både private saker och public saker via self.<var/func> inne i objektet.
+            define self = public.private;
+            // Ta bort bindningen av namnet "private", informationen finns fortfarande kvar men man kan inte nå det genom ".private" längre
+            clear(public.private);
+
+            // Kör konstruktorn
+            $cbody
+
+            // Returnera public, man kan inte skriva obj.private längre då inte är bunden till något längre.
+            return (public);
+        }
+    }
+
+
+define Test = function _i {
+    define self = {
+        cell i = 0;
+        define doSomething = function {
+            self.set_j(1);
+        }
+        
+        define set_i = function _i {
+            self.i = _1;
+        }
+
+        {
+            cell j = 0;
+
+            define set_j = function _j {
+                self.j = _j;
+            }
+        }
+    }
+}
+
+class Test {
+    public;
+        cell i = 0;
+        Test(_i) {
+            self.i = _i;
+        }
+
+        doSomething() {
+            self.set_j(1);
+        }
+
+        set_i(_i) {
+            self.i = _i;
+        }
+    private;
+        cell j = 0;
+        set_j(_j) {
+            self.j = _j;
+        }
+} 
+
+rule
+    class $name
+    {
+        $name $cargs $cbody;
+        $functions($fname $fargs $fbody ;)...
+    }
+    => {
+        define $name = function $cargs {
+            define self = {
+                $functions(define $fname = function $fargs {
+                    $fbody
+                };)
+            };
+            $cbody;
+            return (self);
+        };

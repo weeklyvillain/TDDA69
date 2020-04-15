@@ -1,0 +1,14 @@
+rule
+    for ($start; $condition; $step) 
+        $body
+    => {
+        // Add a block to make sure that the $start cell is not leaked to the outer scope.
+        {
+            $start;
+            define loop = function() {
+                cond($condition, { $body; $step; loop() });
+            }
+            loop();
+        }
+
+    }
