@@ -54,11 +54,6 @@ def header_get_size(heap, pointer):
 def header_set_size(heap, pointer, size):
   header = int.from_bytes(heap[pointer:pointer+4], byteorder='little')
 
-  currentSize = header & 0x1FFFFFFF
-  newSize = currentSize & size
-  
-  1001
-  0110
-  header = header | (0x1FFFFFFF & size)
+  header = header & ~0x1FFFFFFF | (0x1FFFFFFF & size)
   header = header.to_bytes(4, byteorder='little')
   heap[pointer:pointer+4] = header
