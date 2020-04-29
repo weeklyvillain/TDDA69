@@ -18,39 +18,114 @@ class heap(object):
   # return the index to the begining of a block with size (in bytes)
   def allocate(self, size):
     # The 4 first is the header
-    pointer = 4
+    pointer = 0
+    best_fit = {
+      'size': len(self.data),
+      'pointer': -1
+    }
+    perfect_match = False
+
+
+    while pointer < len(self.data) - 4:
+      if header_get_used_flag(self.data, pointer) is False:
+        currentSize = header_get_size(self.data, pointer)
+        if currentSize < best_fit['size'] and size <= currentSize:
+          best_fit['size'] = currentSize
+          best_fit['pointer'] = pointer
+          if currentSize == size:
+            perfect_match = True
+            break
+
+      pointer += header_get_size(self.data, pointer)+4
+
+    if best_fit['pointer'] is not -1:
+      # Set the size and used flag for the new block
+      header_set_size(self.data, best_fit['pointer'], size)
+      header_set_used_flag(self.data, best_fit['pointer'], True)
+
+      # Set the size for the next block
+      if perfect_match == False:
+        # best_fit['size'] - size - 4
+        header_set_size(self.data, best_fit['pointer']+size+4, best_fit['size'] - size - 4)
+
+
+
+      #if header_get_used_flag(self.data, best_fit['pointer']+size+4) is not True and header_get_size(self.data, best_fit['pointer']+size+4) == 0:
+      #  header_set_size(self.data, best_fit['pointer']+size+4, len(self.data)-4-best_fit['pointer']-size-4)
+
+
+    return best_fit['pointer']
+    """
+
 
     while True:
       if header_get_used_flag(self.data, pointer) is not True:
         print(header_get_size(self.data, pointer))
+        # Set this block size and use
         header_set_size(self.data, pointer, size)
         header_set_used_flag(self.data, pointer, True)
+        # Set the size for the next block
+        if header_get_used_flag(self.data, pointer+size) is not True and header_get_size(self.data, pointer+size) == 0:
+          header_set_size(self.data, pointer, len(self.data)-pointer-4)
         return pointer
       else:
         pointer += header_get_size(self.data, pointer)
         #print(pointer)
+    """
+
+  # 1 set_size(3)
+  # 1
+  # 1
+  # 1
+  # 1 size(2)
+  # 1
+  # 1
+  #
+  #
+  # 1 size(2)
+  # 1
+  # 1
   
   # unallocate the memory at the given index
   def deallocate(self, pointer):
-    pass
+    size = header_get_size(self.data, pointer)
+    print(pointer)
+    print("SIIIIIIIIIIIIIIIIIIIIIZE")
+    print(size)
+    if header_get_used_flag(self.data, pointer+size+4) is False:
+      nextBlockSize = header_get_size(self.data, pointer+size+4)
+      header_set_size(self.data, pointer+size+4, 0)
+      header_set_size(self.data, pointer, size+nextBlockSize+4)
+    header_set_used_flag(self.data, pointer, False)
+
+    
+    #else:
+      #header_set_size(self.data, pointer, size+4)
   
   # Return the current total (allocatable) free space
   def total_free_space(self):
     # The 4 first is the header
-    pointer = 4
-    used_space = 4
-    while pointer < len(self.data) and header_get_size(self.data, pointer) != 0:
+    pointer = 0
+    used_space = 0
+    while pointer < len(self.data):
       if header_get_used_flag(self.data, pointer):
         used_space += header_get_size(self.data, pointer) + 4
-      pointer += header_get_size(self.data, pointer)
+      pointer += header_get_size(self.data, pointer) + 4
       print(pointer)
     print("Free: " + str(len(self.data) - used_space))
-    return len(self.data) - used_space
+    return len(self.data)-4 - used_space
 
   # Return the current total allocated memory
   def total_allocated_space(self):
-    print("Total_allocated space: " + str(len(self.data) - self.total_free_space() - 4))
-    return len(self.data) - self.total_free_space() - 4
+    pointer = 0
+    allocated = 0
+    while pointer < len(self.data):
+      if header_get_used_flag(self.data, pointer):
+        allocated += header_get_size(self.data, pointer)
+      pointer += header_get_size(self.data, pointer) + 4
+
+    print("Total_allocated space: " + str(allocated))
+    return allocated
 
   def allocate_array(self, count):
     pointer = self.allocate(count * 4)
