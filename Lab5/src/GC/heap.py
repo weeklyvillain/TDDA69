@@ -89,31 +89,61 @@ class heap(object):
   # unallocate the memory at the given index
   def deallocate(self, pointer):
     size = header_get_size(self.data, pointer)
-    print(pointer)
-    print("SIIIIIIIIIIIIIIIIIIIIIZE")
-    print(size)
+    header_set_used_flag(self.data, pointer, False)
+
+    preBlock = {
+      "pointer": 0,
+      "size": -1,
+      "used": True
+    }
+
+    # Get the previous block
+    while preBlock['pointer'] != pointer and preBlock['pointer'] < len(self.data):
+      preBlock['size'] = header_get_size(self.data, preBlock['pointer'])
+      preBlock['used'] = header_get_used_flag(self.data, preBlock['pointer'])
+      preBlock['pointer'] += header_get_size(self.data, preBlock['pointer']) + 4
+
+    preBlock['pointer'] -= preBlock['size'] + 4
+
+
+    # If the previous block is not used, change our pointer and size
+    if preBlock["used"] == False:
+      header_set_size(self.data, pointer, 0)
+      pointer = preBlock['pointer']
+      print("PREBLOOOOOOOOOOOOOOOOOOOOOOCK")
+      size += preBlock['size'] + 4
+      print(size)
+
+      header_set_size(self.data, pointer, size)
+    
+
+    # If the next block is not used
     if header_get_used_flag(self.data, pointer+size+4) is False:
       nextBlockSize = header_get_size(self.data, pointer+size+4)
       header_set_size(self.data, pointer+size+4, 0)
       header_set_size(self.data, pointer, size+nextBlockSize+4)
-    header_set_used_flag(self.data, pointer, False)
 
-    
-    #else:
-      #header_set_size(self.data, pointer, size+4)
+
+
+
+
   
   # Return the current total (allocatable) free space
   def total_free_space(self):
     # The 4 first is the header
+    print("Hello, world")
     pointer = 0
     used_space = 0
     while pointer < len(self.data):
       if header_get_used_flag(self.data, pointer):
         used_space += header_get_size(self.data, pointer) + 4
+      else:
+        used_space += 4
+      print("size:" + str(header_get_size(self.data, pointer)))
       pointer += header_get_size(self.data, pointer) + 4
       print(pointer)
     print("Free: " + str(len(self.data) - used_space))
-    return len(self.data)-4 - used_space
+    return len(self.data) - used_space
 
   # Return the current total allocated memory
   def total_allocated_space(self):
