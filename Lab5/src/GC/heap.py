@@ -29,12 +29,15 @@ class heap(object):
     while pointer < len(self.data) - 4:
       if header_get_used_flag(self.data, pointer) is False:
         currentSize = header_get_size(self.data, pointer)
-        if currentSize < best_fit['size'] and size <= currentSize:
+        if currentSize < best_fit['size'] and size + 4 <= currentSize:
           best_fit['size'] = currentSize
           best_fit['pointer'] = pointer
-          if currentSize == size:
-            perfect_match = True
-            break
+
+        if currentSize == size:
+          perfect_match = True
+          best_fit['size'] = currentSize
+          best_fit['pointer'] = pointer
+          break
 
       pointer += header_get_size(self.data, pointer)+4
 
@@ -122,9 +125,6 @@ class heap(object):
       nextBlockSize = header_get_size(self.data, pointer+size+4)
       header_set_size(self.data, pointer+size+4, 0)
       header_set_size(self.data, pointer, size+nextBlockSize+4)
-
-
-
 
 
   
