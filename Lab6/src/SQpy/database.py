@@ -65,16 +65,47 @@ class database(object):
           if type(column) is tuple:
             query.columns[idx] = (self.get_operand_values(column[0]), column[1])
 
-      # TODO: DO STUFF WITH WHERE BEFORE THIS!!!!!!!!!!!!
-      return table_obj.select(query.columns)
+      where = None
+      if hasattr(query, "where"):
+        where = self.get_operand_values(query.where)
+
+      joinedColumns = []
+      listOfJoins = []
+      if hasattr(query, "joins"):
+        for join in query.joins:
+          join_table = self.get_table_object(join.table)
+          listOfJoins.append((join_table, self.get_operand_values(join.on)))
+        table_obj.join(listOfJoins)
+      
+      return table_obj.select(query.columns, where)
+
+
 
   def get_operand_values(self, operand):
     Query = namedtuple('Query', ['token', 'lh', 'rh'])
+
     if operand.token == token.op_and:
       to_return = []
       for op in operand.operands:
         to_return.append(self.get_operand_values(op))
       return to_return
+    elif operand.token == token.fn_count or operand.token == token.fn_avg:
+      return Query(operand.token, operand.field, None)
+    
+    elif operand.token == token.identifier:
+      return operand.identifier
+
+    elif operand.token == token.op_divide or operand.token == token.op_equal:
+      opLeft = operand.operands[0]
+      opRight = operand.operands[1]
+      if isinstance(operand.operands[0], ast):
+        opLeft = self.get_operand_values(operand.operands[0])
+      if isinstance(operand.operands[1], ast):
+        opRight = self.get_operand_values(operand.operands[1])
+
+      return Query(operand.token, opLeft, opRight)
+
+
     else:
       return Query(operand.token, operand.operands[0].identifier, operand.operands[1])
 
@@ -87,6 +118,8 @@ class database(object):
 class Table():
   def __init__(self, name, columns):
     self.content = []
+    self.name = name
+    self.columns = columns
     # None is standard value
     self.definition = namedtuple(name, columns, defaults=(None,) * len(columns))
 
@@ -97,6 +130,34 @@ class Table():
     row = self.definition("a=hej")
     to_be_inserted = dict(zip(columns, values))
     self.content.append(self.definition(**to_be_inserted))
+
+  def join(self, tables):
+    joinedTables = []
+
+    # Create new row definition
+    columns = []
+    for table in tables:
+      tableObj = table[0]
+      columns = columns + tableObj.columns
+
+    joinedRowDefinition = namedtuple(self.name, columns, defaults=(None,) * len(columns))    
+
+
+    tableContents = [] # (tableObj/name, table content (allt)) OBS: INKLUSIVE KOLUMN NAMN OCH VÄRDE
+    for table in tables:
+      tableObj = table[0]
+      # Hämta alla rader från tableObj och lägg in i tableContents som tuple
+
+    for c in tableContents:
+      row = {}
+      for tableRow in c:
+        # Do the ON shit here with the table that corresponds to the current tableContent
+        # if true:
+        # row[tableContents[1][KOLUMNENS NAMN PÅ NÅGOT VÄNSTER]] = tableContents[1][KOLUMNENS VÄRDE PÅ NÅGOT VÄNSTER]
+        # joinedTables.append(row)
+      # joinedTables.append(row)
+
+    print(tables)
 
   def select(self, columns, where=None):
 
@@ -115,19 +176,65 @@ class Table():
 
       # Get the values from the table content
       return_list = []
+      counts = {}
+      avgs = {}
       for row in self.content:
         d = {}
+        should_append = True
+
+        # Do the where statement if it exist
+        if where is not None:
+          if where.token == token.op_superior:
+            # If the where statement is false, skip this row
+            if getattr(row, where.lh[0]) <= where.rh:
+              continue
+
         for column in columns:
           # If the column if a tuple, we need to do the calculation accorind to the operand
           # and save it with the name of the AS value (column[1])
           if type(column) is tuple:
+            # If it is AS without a Query object (without a token)
+            if isinstance(column[0], list):
+              d[column[0][1]] = getattr(row, column[0][1])
+
             if column[0].token == token.op_divide:
               d[column[1]] = getattr(row, column[0].lh[0]) / column[0].rh
+              # If it is a count expression
+            elif column[0].token == token.fn_count:
+              should_append = False
+              # If the AS (column[1]) is already saved in the list containing all the counts, do a + 1 on it.
+              if column[1] in counts:
+                counts[column[1]] = counts[column[1]]+1
+                # If the AS (column[1]) is not saved in it, initialize it with the value 1
+              else:
+                counts[column[1]] = 1
+                # If it is a average expressiom
+            elif column[0].token == token.fn_avg:
+              should_append = False
+              # If the AS (column[1]) is already saved in the avg, append this value to the avgs list
+              if column[1] in avgs:
+                avgs[column[1]].append(getattr(row, column[0].lh))
+                # If the AS (column[1]) is not saved in it, initialize it with a list containing this value
+              else:
+                avgs[column[1]] = [getattr(row, column[0].lh)]
           else:
             d[column] = getattr(row, column)
 
-            # DO WHERE SHIT
-        return_list.append(row_definition(**d))
+        if should_append:
+          return_list.append(row_definition(**d))
+
+
+
+      # Create new rows for the count and/or the average values
+      row = {}
+      for key, value in counts.items():
+        row[key] = value
+      for key, valueList in avgs.items():
+        row[key] = sum(valueList) / len(valueList)
+      
+      # Append the new row to the returnList
+      if row:
+        return_list.append(row_definition(**row))
 
       return return_list
 
