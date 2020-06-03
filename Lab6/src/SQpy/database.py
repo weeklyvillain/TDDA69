@@ -1,5 +1,8 @@
 from .ast import token, ast
 from collections import namedtuple
+import sys
+Query = namedtuple('Query', ['token', 'lh', 'rh'])
+
 
 class database(object):
   def __init__(self):
@@ -72,17 +75,34 @@ class database(object):
       joinedColumns = []
       listOfJoins = []
       if hasattr(query, "joins"):
+        newTable = table_obj
         for join in query.joins:
           join_table = self.get_table_object(join.table)
-          listOfJoins.append((join_table, self.get_operand_values(join.on)))
-        table_obj.join(listOfJoins)
+          newTable = newTable.join((join_table, self.get_operand_values(join.on)))
+        table_obj = newTable
+
+        print(query.columns)
+        i = 0
+        # Gör om query.columns så ifall det är ['TABLE', 'COLUMN'] så ska det bli 'TABLE_COLUMN'
+        for column in query.columns:
+          if isinstance(column[0], list):
+            lst = list(column)
+            lst[0] = lst[0][0] + "_" + lst[0][1]
+            query.columns[i] = tuple(lst)
+          if isinstance(column[0], Query):
+
+            query.columns[i] = column[0]._replace(lh=column[0].lh[0] + "_" + column[0].lh[1])
+            query.columns[i] = column[0]._replace(rh=column[0].rh[0] + "_" + column[0].rh[1])
+            #column[0].lh = column[0].lh[0] + "_" + column[0].lh[1]
+            #column[0].rh = column[0].rh[0] + "_" + column[0].rh[1]
+          i += 1
+        print(query.columns)
       
       return table_obj.select(query.columns, where)
 
 
 
   def get_operand_values(self, operand):
-    Query = namedtuple('Query', ['token', 'lh', 'rh'])
 
     if operand.token == token.op_and:
       to_return = []
@@ -117,22 +137,66 @@ class database(object):
 
 class Table():
   def __init__(self, name, columns):
+    print(sys.version)
     self.content = []
     self.name = name
     self.columns = columns
     # None is standard value
-    self.definition = namedtuple(name, columns, defaults=(None,) * len(columns))
+    self.definition = namedtuple(name, columns, defaults=(None,) * len(columns)) # Python 3.7
+    #self.definition = namedtuple(name, columns) # Python 3.6
+    #self.definition.__new__.__default__ = (None,) * len(self.definition._fields) #python 3.6
 
   def insert(self, values):
     self.content.append(self.definition(*values))
 
   def insert_with_columns(self, values, columns):
-    row = self.definition("a=hej")
+    #row = self.definition("a=hej")
     to_be_inserted = dict(zip(columns, values))
     self.content.append(self.definition(**to_be_inserted))
 
-  def join(self, tables):
+  def join(self, table):
+    query = table[1]
     joinedTables = []
+    print("TABLES")
+    print(table)
+    fields = []
+    for field in table[0].definition._fields:
+      fields.append(table[0].name + "_" + field)
+    for field in self.definition._fields:
+      fields.append(self.name + "_" + field)
+
+    newTable = Table("joinedTable", fields)
+    print(newTable.definition._fields)
+
+    print(self.content)
+
+    for row in self.content:
+      for row2 in table[0].content:
+        if query.token == token.op_equal:
+          if query.lh[0] == self.name:
+            if getattr(row, query.lh[1]) == getattr(row2, query.rh[1]):
+              newTable.insert([*(row + row2)])
+          else:
+            if getattr(row, query.rh[1]) == getattr(row2, query.lh[1]):
+              newTable.insert([*(row + row2)])
+
+    print("CONTENT")
+    print(newTable.content)
+    return newTable
+
+
+
+    """
+    
+
+
+
+    """
+    return None
+
+
+
+    """
 
     # Create new row definition
     columns = []
@@ -140,24 +204,57 @@ class Table():
       tableObj = table[0]
       columns = columns + tableObj.columns
 
-    joinedRowDefinition = namedtuple(self.name, columns, defaults=(None,) * len(columns))    
+    joinedRowDefinition = namedtuple(self.name, columns, defaults=(None,) * len(columns))
+    print(columns)
 
 
     tableContents = [] # (tableObj/name, table content (allt)) OBS: INKLUSIVE KOLUMN NAMN OCH VÄRDE
     for table in tables:
       tableObj = table[0]
+      rows = []
+      for row in tableObj.content:
+        rows.append(row)
+      tableContents.append((tableObj, rows))
       # Hämta alla rader från tableObj och lägg in i tableContents som tuple
+    print("TABLEEEEEEEE")
+    print(tableContents)
 
     for c in tableContents:
       row = {}
-      for tableRow in c:
-        # Do the ON shit here with the table that corresponds to the current tableContent
-        # if true:
-        # row[tableContents[1][KOLUMNENS NAMN PÅ NÅGOT VÄNSTER]] = tableContents[1][KOLUMNENS VÄRDE PÅ NÅGOT VÄNSTER]
-        # joinedTables.append(row)
-      # joinedTables.append(row)
+      # Find the correct Table query
+      for joinTable in tables:
+        if joinTable[0].name == c[0].name:
+          for tableRow in c[1]:
+            query = joinTable[1]
+            print("query")
+            print(query)
+            if query.token == token.op_equal:
+              for selfRow in self.content:
+                if query.lh[0] == self.name:
+                  if getattr(selfRow, query.lh[1]) == getattr(tableRow, query.rh[1]):
+                    #test = namedtuple("test", joinTable[0].definition._fields + self.definition._fields)
+                    fields = []
+                    for field in joinTable[0].definition._fields:
+                      fields.append(joinTable[0].name+ field)
+                    for field in self.definition._fields:
+                      fields.append(self.name+ field)
+                    test = namedtuple("test", fields, defaults=(None,) * len(fields))
+                    print(tableRow)
+                    print(selfRow)
+                    l = test(*(tableRow + selfRow))
+                    print("HAHAHAH")
+                    print(l)
+                else:
+                  if getattr(selfRow, query.rh[1]) == getattr(tableRow, query.lh[1]):
+                    print("HAHAHHOOHOHOAH")
+            pass
+            # Do the ON shit here with the table that corresponds to the current tableContent
+            # if true:
+            # row[tableContents[1][KOLUMNENS NAMN PÅ NÅGOT VÄNSTER]] = tableContents[1][KOLUMNENS VÄRDE PÅ NÅGOT VÄNSTER]
+            # joinedTables.append(row)
+          # joinedTables.append(row)
+    """
 
-    print(tables)
 
   def select(self, columns, where=None):
 
@@ -193,8 +290,12 @@ class Table():
           # If the column if a tuple, we need to do the calculation accorind to the operand
           # and save it with the name of the AS value (column[1])
           if type(column) is tuple:
+            print("TYP")
+            print(type(column[0]))
             # If it is AS without a Query object (without a token)
             if isinstance(column[0], list):
+              print("kolla")
+              print(column[0][0])
               d[column[0][1]] = getattr(row, column[0][1])
 
             if column[0].token == token.op_divide:
